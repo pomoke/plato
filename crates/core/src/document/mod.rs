@@ -17,7 +17,7 @@ use anyhow::{Error, format_err};
 use regex::Regex;
 use nix::sys::statvfs;
 #[cfg(target_os = "linux")]
-use nix::sys::sysinfo;
+use sysinfo;
 use fxhash::FxHashMap;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{is_combining_mark};
@@ -290,11 +290,12 @@ pub fn toc_as_html_aux(toc: &[TocEntry], chap_index: usize, depth: usize, buf: &
     for entry in toc {
         buf.push_str(&"\t".repeat(depth + 3));
         match entry.location {
-            Location::Exact(n) => buf.push_str(&format!("<li><a href=\"@{}\">", n)),
-            Location::Uri(ref uri) => buf.push_str(&format!("<li><a href=\"@{}\">", uri)),
+            Location::Exact(n) => buf.push_str(&format!("<li><a href=\"@{}\" style=\"text-indent: {}em\">", n, depth)),
+            Location::Uri(ref uri) => buf.push_str(&format!("<li><a href=\"@{}\" style=\"text-indent: {}em \">", uri, depth)),
             _ => buf.push_str("<li><a href=\"#\">"),
         }
         let title = entry.title.replace('<', "&lt;").replace('>', "&gt;");
+        let title = format!("[{}]",title);
         if entry.index == chap_index {
             buf.push_str(&format!("<strong>{}</strong>", title));
         } else {
@@ -495,6 +496,7 @@ pub fn sys_info_as_html() -> String {
 
     buf.push_str("\t\t\t<tr class=\"sep\"></tr>\n");
 
+    // TODO: Something rather weird, and does not work on desktop linux.
     let output = Command::new("scripts/ip.sh")
                          .output()
                          .map_err(|e| eprintln!("Can't execute command: {:#}.", e))
@@ -520,20 +522,20 @@ pub fn sys_info_as_html() -> String {
     }
 
     #[cfg(target_os = "linux")]
-    if let Ok(info) = sysinfo::sysinfo() {
+    if let info = sysinfo::System::new_all() {
         buf.push_str("\t\t\t<tr>\n");
-        buf.push_str("\t\t\t\t<td>Memory (Free / Total)</td>\n");
+        buf.push_str("\t\t\t\t<td>Memory (Available / Total)</td>\n");
         buf.push_str(&format!("\t\t\t\t<td>{} / {}</td>\n",
-                              info.ram_unused().human_size(),
-                              info.ram_total().human_size()));
+                              info.available_memory().human_size(),
+                              info.total_memory().human_size()));
         buf.push_str("\t\t\t</tr>\n");
-        let load = info.load_average();
+        let load = sysinfo::System::load_average();
         buf.push_str("\t\t\t<tr>\n");
         buf.push_str("\t\t\t\t<td>Load Average</td>\n");
-        buf.push_str(&format!("\t\t\t\t<td>{:.1}% {:.1}% {:.1}%</td>\n",
-                              load.0 * 100.0,
-                              load.1 * 100.0,
-                              load.2 * 100.0));
+        buf.push_str(&format!("\t\t\t\t<td>{:.1} {:.1} {:.1}</td>\n",
+                              load.one,
+                              load.five,
+                              load.fifteen));
         buf.push_str("\t\t\t</tr>\n");
     }
 
