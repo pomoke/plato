@@ -97,7 +97,9 @@ pub fn device_event(event: SdlEvent) -> Option<DeviceEvent> {
 fn code_from_key(key: Scancode) -> Option<ButtonCode> {
     match key {
         Scancode::B => Some(ButtonCode::Backward),
+        Scancode::Left => Some(ButtonCode::Backward),
         Scancode::F => Some(ButtonCode::Forward),
+        Scancode::Right => Some(ButtonCode::Forward),
         Scancode::P => Some(ButtonCode::Power),
         Scancode::L => Some(ButtonCode::Light),
         Scancode::H => Some(ButtonCode::Home),
@@ -110,6 +112,7 @@ fn code_from_key(key: Scancode) -> Option<ButtonCode> {
 struct FBCanvas(WindowCanvas);
 
 impl Framebuffer for FBCanvas {
+    // TODO: Desktop version spend >60% cpu on this!
     fn set_pixel(&mut self, x: u32, y: u32, color: Color) {
         let [red, green, blue] = color.rgb();
         self.0.set_draw_color(SdlColor::RGB(red, green, blue));
@@ -196,6 +199,13 @@ impl Framebuffer for FBCanvas {
         }
         self.0.window_mut().set_size(width, height).ok();
         Ok((width, height))
+    }
+
+    fn draw_rectangle(&mut self, rect: &Rectangle, color: Color) {
+        let [red, green, blue] = color.rgb();
+        self.0.set_draw_color(SdlColor::RGB(red, green, blue));
+        self.0.fill_rect(SdlRect::new(rect.min.x, rect.min.y,
+                                       rect.width(), rect.height())).unwrap();
     }
 
     fn set_monochrome(&mut self, _enable: bool) {
